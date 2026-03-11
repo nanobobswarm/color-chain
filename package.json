@@ -1,0 +1,13 @@
+{
+  "name": "color-chain",
+  "version": "1.0.0",
+  "description": "Color Chain — a web-based puzzle game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ssh2": "^1.17.0"
+  }
+}
