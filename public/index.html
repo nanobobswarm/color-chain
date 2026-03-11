@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Chain</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: #fff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow-x: hidden;
+}
+
+header {
+  text-align: center;
+  padding: 16px 16px 8px;
+  width: 100%;
+  max-width: 500px;
+}
+
+header h1 {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(90deg, #ff4444, #ff8800, #ffdd00, #44cc44, #4488ff, #9944ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 2px;
+}
+
+.stats-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  width: 100%;
+  max-width: 500px;
+  gap: 12px;
+}
+
+.stat {
+  text-align: center;
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #8899aa;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+#timer-value {
+  color: #44cc44;
+  transition: color 0.3s;
+}
+
+#timer-value.warning { color: #ff8800; }
+#timer-value.danger { color: #ff4444; animation: pulse 0.5s infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+#score-value { color: #4488ff; }
+#combo-value { color: #ffdd00; }
+
+.game-area {
+  position: relative;
+  padding: 8px;
+}
+
+#game-svg {
+  display: block;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  touch-action: none;
+}
+
+.dot {
+  cursor: pointer;
+  transition: r 0.1s ease;
+}
+
+.dot:hover { filter: brightness(1.2); }
+
+.dot.selected {
+  stroke: #fff;
+  stroke-width: 3;
+  filter: brightness(1.3);
+}
+
+.dot.in-chain {
+  stroke: #fff;
+  stroke-width: 2;
+  filter: brightness(1.2);
+}
+
+.chain-line {
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.dot-clear {
+  animation: dotClear 0.3s ease-out forwards;
+}
+
+@keyframes dotClear {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+.dot-fall {
+  transition: cy 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dot-new {
+  animation: dotAppear 0.3s ease-out;
+}
+
+@keyframes dotAppear {
+  0% { r: 0; opacity: 0; }
+  100% { r: 18; opacity: 1; }
+}
+
+.btn {
+  padding: 12px 32px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.btn:active { transform: scale(0.96); }
+
+.btn-primary {
+  background: linear-gradient(135deg, #4488ff, #9944ff);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(68, 136, 255, 0.4);
+}
+
+.btn-secondary {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+#start-btn {
+  margin: 16px 0;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  max-width: 360px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.modal h2 {
+  font-size: 28px;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, #ff8800, #ffdd00);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.modal .final-score {
+  font-size: 48px;
+  font-weight: 800;
+  color: #4488ff;
+  margin: 12px 0;
+}
+
+.modal .high-score-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #ffdd00, #ff8800);
+  color: #1a1a2e;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.leaderboard {
+  margin: 16px 0;
+  text-align: left;
+}
+
+.leaderboard h3 {
+  font-size: 14px;
+  color: #8899aa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.leaderboard ol {
+  list-style: none;
+  counter-reset: lb;
+}
+
+.leaderboard li {
+  counter-increment: lb;
+  padding: 6px 0;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex;
+  justify-content: space-between;
+}
+
+.leaderboard li::before {
+  content: counter(lb) ".";
+  color: #8899aa;
+  margin-right: 8px;
+  min-width: 24px;
+}
+
+.leaderboard .lb-score {
+  color: #4488ff;
+  font-weight: 700;
+}
+
+.modal .btn { margin-top: 16px; width: 100%; }
+
+.combo-popup {
+  position: absolute;
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffdd00;
+  pointer-events: none;
+  animation: comboFloat 1s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+@keyframes comboFloat {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-40px) scale(1.3); }
+}
+
+.score-popup {
+  position: absolute;
+  font-size: 16px;
+  font-weight: 700;
+  color: #4488ff;
+  pointer-events: none;
+  animation: comboFloat 0.8s ease-out forwards;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+@media (max-width: 420px) {
+  header h1 { font-size: 22px; }
+  .stat-value { font-size: 20px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>COLOR CHAIN</h1>
+</header>
+
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-label">Time</div>
+    <div class="stat-value" id="timer-value">60</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Score</div>
+    <div class="stat-value" id="score-value">0</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Combo</div>
+    <div class="stat-value" id="combo-value">x1</div>
+  </div>
+</div>
+
+<div class="game-area" id="game-area">
+  <svg id="game-svg" width="400" height="400"></svg>
+</div>
+
+<button class="btn btn-primary" id="start-btn">Start Game</button>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h2>Game Over</h2>
+    <div class="final-score" id="final-score">0</div>
+    <div class="high-score-badge" id="high-score-badge" style="display:none;">New High Score!</div>
+    <div class="leaderboard">
+      <h3>Leaderboard</h3>
+      <ol id="leaderboard-list"></ol>
+    </div>
+    <button class="btn btn-primary" id="play-again-btn">Play Again</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  const ROWS = 8, COLS = 8;
+  const COLORS = ['#ff4444','#ff8800','#ffdd00','#44cc44','#4488ff','#9944ff'];
+  const COLOR_NAMES = ['red','orange','yellow','green','blue','purple'];
+  const CELL = 50;
+  const DOT_R = 18;
+  const PADDING = 0;
+  const SVG_SIZE = COLS * CELL;
+
+  const svg = document.getElementById('game-svg');
+  const timerEl = document.getElementById('timer-value');
+  const scoreEl = document.getElementById('score-value');
+  const comboEl = document.getElementById('combo-value');
+  const startBtn = document.getElementById('start-btn');
+  const modalOverlay = document.getElementById('modal-overlay');
+  const finalScoreEl = document.getElementById('final-score');
+  const highScoreBadge = document.getElementById('high-score-badge');
+  const leaderboardList = document.getElementById('leaderboard-list');
+  const playAgainBtn = document.getElementById('play-again-btn');
+  const gameArea = document.getElementById('game-area');
+
+  svg.setAttribute('width', SVG_SIZE);
+  svg.setAttribute('height', SVG_SIZE);
+
+  let grid = [];       // grid[row][col] = color index
+  let dotEls = [];     // dotEls[row][col] = SVG circle element
+  let chain = [];      // [{row, col}, ...]
+  let chainLines = []; // SVG line elements
+  let gameRunning = false;
+  let timeLeft = 60;
+  let score = 0;
+  let combo = 1;
+  let comboTimer = null;
+  let timerInterval = null;
+  let animating = false;
+
+  function cx(col) { return col * CELL + CELL / 2; }
+  function cy(row) { return row * CELL + CELL / 2; }
+
+  function randomColor() { return Math.floor(Math.random() * COLORS.length); }
+
+  function initGrid() {
+    grid = [];
+    for (let r = 0; r < ROWS; r++) {
+      grid[r] = [];
+      for (let c = 0; c < COLS; c++) {
+        grid[r][c] = randomColor();
+      }
+    }
+  }
+
+  function renderGrid() {
+    svg.innerHTML = '';
+    dotEls = [];
+    for (let r = 0; r < ROWS; r++) {
+      dotEls[r] = [];
+      for (let c = 0; c < COLS; c++) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', cx(c));
+        circle.setAttribute('cy', cy(r));
+        circle.setAttribute('r', DOT_R);
+        circle.setAttribute('fill', COLORS[grid[r][c]]);
+        circle.classList.add('dot');
+        circle.dataset.row = r;
+        circle.dataset.col = c;
+        svg.appendChild(circle);
+        dotEls[r][c] = circle;
+      }
+    }
+  }
+
+  function isAdjacent(a, b) {
+    return (Math.abs(a.row - b.row) + Math.abs(a.col - b.col)) === 1;
+  }
+
+  function isInChain(row, col) {
+    return chain.some(p => p.row === row && p.col === col);
+  }
+
+  function updateChainVisuals() {
+    // Remove old lines
+    chainLines.forEach(l => l.remove());
+    chainLines = [];
+
+    // Reset all dots
+    svg.querySelectorAll('.dot').forEach(d => {
+      d.classList.remove('selected', 'in-chain');
+    });
+
+    // Highlight chain dots
+    chain.forEach((p, i) => {
+      const el = dotEls[p.row][p.col];
+      if (i === 0) el.classList.add('selected');
+      else el.classList.add('in-chain');
+    });
+
+    // Draw chain lines
+    for (let i = 1; i < chain.length; i++) {
+      const prev = chain[i - 1];
+      const curr = chain[i];
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', cx(prev.col));
+      line.setAttribute('y1', cy(prev.row));
+      line.setAttribute('x2', cx(curr.col));
+      line.setAttribute('y2', cy(curr.row));
+      line.classList.add('chain-line');
+      svg.appendChild(line);
+      chainLines.push(line);
+    }
+  }
+
+  function clearChain() {
+    chain = [];
+    updateChainVisuals();
+  }
+
+  function handleDotClick(row, col) {
+    if (!gameRunning || animating) return;
+
+    const colorIdx = grid[row][col];
+
+    // No chain yet — start one
+    if (chain.length === 0) {
+      chain.push({ row, col });
+      updateChainVisuals();
+      return;
+    }
+
+    const chainColor = grid[chain[0].row][chain[0].col];
+
+    // Clicking a dot already in the chain (undo back to that point)
+    for (let i = 0; i < chain.length; i++) {
+      if (chain[i].row === row && chain[i].col === col) {
+        if (i === 0 && chain.length === 1) {
+          // Deselect
+          clearChain();
+        } else {
+          // Undo back to this dot
+          chain = chain.slice(0, i + 1);
+          updateChainVisuals();
+        }
+        return;
+      }
+    }
+
+    // Must be same color and adjacent to last in chain
+    const last = chain[chain.length - 1];
+    if (colorIdx === chainColor && isAdjacent(last, { row, col }) && !isInChain(row, col)) {
+      chain.push({ row, col });
+      updateChainVisuals();
+    } else if (colorIdx !== chainColor) {
+      // Start new chain with different color
+      clearChain();
+      chain.push({ row, col });
+      updateChainVisuals();
+    }
+  }
+
+  function submitChain() {
+    if (chain.length < 3 || !gameRunning || animating) {
+      clearChain();
+      return;
+    }
+
+    animating = true;
+    const points = chain.length * 10 * combo;
+    const timeBonus = chain.length * 2;
+
+    // Show score popup
+    const last = chain[chain.length - 1];
+    showScorePopup(cx(last.col), cy(last.row), `+${points}`);
+
+    // Show combo popup if combo > 1
+    if (combo > 1) {
+      showComboPopup(cx(chain[0].col), cy(chain[0].row), `x${combo}`);
+    }
+
+    score += points;
+    timeLeft = Math.min(timeLeft + timeBonus, 999);
+    scoreEl.textContent = score;
+
+    // Update combo
+    combo++;
+    comboEl.textContent = `x${combo}`;
+    clearTimeout(comboTimer);
+    comboTimer = setTimeout(() => {
+      combo = 1;
+      comboEl.textContent = 'x1';
+    }, 3000);
+
+    // Mark dots for clearing
+    const toClear = chain.map(p => ({ ...p }));
+    chain = [];
+    chainLines.forEach(l => l.remove());
+    chainLines = [];
+
+    // Animate clear
+    toClear.forEach(p => {
+      const el = dotEls[p.row][p.col];
+      el.classList.remove('selected', 'in-chain');
+      el.classList.add('dot-clear');
+    });
+
+    setTimeout(() => {
+      // Remove cleared dots from grid
+      toClear.forEach(p => {
+        grid[p.row][p.col] = -1;
+      });
+
+      // Gravity: dots fall down
+      for (let c = 0; c < COLS; c++) {
+        let writeRow = ROWS - 1;
+        for (let r = ROWS - 1; r >= 0; r--) {
+          if (grid[r][c] !== -1) {
+            grid[writeRow][c] = grid[r][c];
+            if (writeRow !== r) grid[r][c] = -1;
+            writeRow--;
+          }
+        }
+        // Fill empty top rows
+        for (let r = writeRow; r >= 0; r--) {
+          grid[r][c] = randomColor();
+        }
+      }
+
+      // Re-render with animation
+      renderGrid();
+
+      // Animate new/fallen dots
+      dotEls.forEach((row, r) => {
+        row.forEach((el, c) => {
+          el.classList.add('dot-new');
+          setTimeout(() => el.classList.remove('dot-new'), 300);
+        });
+      });
+
+      animating = false;
+    }, 300);
+  }
+
+  function showScorePopup(x, y, text) {
+    const el = document.createElement('div');
+    el.className = 'score-popup';
+    el.textContent = text;
+    const rect = svg.getBoundingClientRect();
+    const areaRect = gameArea.getBoundingClientRect();
+    el.style.left = (rect.left - areaRect.left + x) + 'px';
+    el.style.top = (rect.top - areaRect.top + y - 20) + 'px';
+    gameArea.appendChild(el);
+    setTimeout(() => el.remove(), 800);
+  }
+
+  function showComboPopup(x, y, text) {
+    const el = document.createElement('div');
+    el.className = 'combo-popup';
+    el.textContent = text;
+    const rect = svg.getBoundingClientRect();
+    const areaRect = gameArea.getBoundingClientRect();
+    el.style.left = (rect.left - areaRect.left + x) + 'px';
+    el.style.top = (rect.top - areaRect.top + y - 40) + 'px';
+    gameArea.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+  }
+
+  function startTimer() {
+    timerInterval = setInterval(() => {
+      timeLeft -= 1;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        timerEl.textContent = '0';
+        gameOver();
+        return;
+      }
+      timerEl.textContent = Math.ceil(timeLeft);
+      timerEl.classList.remove('warning', 'danger');
+      if (timeLeft <= 10) timerEl.classList.add('danger');
+      else if (timeLeft <= 20) timerEl.classList.add('warning');
+    }, 1000);
+  }
+
+  function gameOver() {
+    gameRunning = false;
+    clearInterval(timerInterval);
+    clearTimeout(comboTimer);
+    clearChain();
+
+    const isHighScore = saveScore(score);
+
+    finalScoreEl.textContent = score;
+    highScoreBadge.style.display = isHighScore ? 'inline-block' : 'none';
+
+    renderLeaderboard();
+    modalOverlay.classList.add('active');
+  }
+
+  function saveScore(s) {
+    const scores = getScores();
+    scores.push({ score: s, date: new Date().toLocaleDateString() });
+    scores.sort((a, b) => b.score - a.score);
+    const top10 = scores.slice(0, 10);
+    localStorage.setItem('color-chain-scores', JSON.stringify(top10));
+    return top10[0].score === s;
+  }
+
+  function getScores() {
+    try {
+      return JSON.parse(localStorage.getItem('color-chain-scores')) || [];
+    } catch { return []; }
+  }
+
+  function renderLeaderboard() {
+    const scores = getScores();
+    leaderboardList.innerHTML = '';
+    if (scores.length === 0) {
+      leaderboardList.innerHTML = '<li>No scores yet</li>';
+      return;
+    }
+    scores.forEach(entry => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>${entry.date}</span><span class="lb-score">${entry.score}</span>`;
+      leaderboardList.appendChild(li);
+    });
+  }
+
+  function startGame() {
+    score = 0;
+    timeLeft = 60;
+    combo = 1;
+    animating = false;
+    scoreEl.textContent = '0';
+    timerEl.textContent = '60';
+    comboEl.textContent = 'x1';
+    timerEl.classList.remove('warning', 'danger');
+    modalOverlay.classList.remove('active');
+    startBtn.style.display = 'none';
+
+    initGrid();
+    renderGrid();
+    gameRunning = true;
+    startTimer();
+  }
+
+  // Event: click on dots
+  svg.addEventListener('pointerdown', (e) => {
+    const target = e.target;
+    if (!target.classList.contains('dot')) return;
+    const row = parseInt(target.dataset.row);
+    const col = parseInt(target.dataset.col);
+    handleDotClick(row, col);
+  });
+
+  // Double-click or right-click to submit chain
+  svg.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    submitChain();
+  });
+
+  svg.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    submitChain();
+  });
+
+  // Also submit chain on pressing Enter or Space
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      submitChain();
+    }
+  });
+
+  startBtn.addEventListener('click', startGame);
+  playAgainBtn.addEventListener('click', startGame);
+
+  // Initial render (static, not playable)
+  initGrid();
+  renderGrid();
+})();
+</script>
+</body>
+</html>
